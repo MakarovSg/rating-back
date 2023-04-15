@@ -1,11 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from web3 import Web3
-import requests, json
-import time
+import requests, json, time, datetime
 app = FastAPI()
 ALCHEMY_BASE_URL = "https://eth-mainnet.g.alchemy.com/nft/v2/"
 ALCHEMY_API_KEY = "key"
-def fetch_all_nfts(base_url, page_size=100):
+ETHERSCAN_API_KEY = "key"
+def fetch_all_nfts(base_url, page_size=1000):
     items = []
     page = 0
 
@@ -16,11 +16,11 @@ def fetch_all_nfts(base_url, page_size=100):
         }        
         headers = {"Content-Type": "application/json"}
         response = requests.get(base_url, params=params, headers=headers)
-
         if response.status_code != 200:
             break
         
         data = response.json()["ownedNfts"]
+
         if not data:
             break
         items.extend(data)
@@ -28,12 +28,32 @@ def fetch_all_nfts(base_url, page_size=100):
             break
         time.sleep(0.2) # 5 free requests per seconds on infura 
         page += 1
-
     return items
+
+async def older_that_100_days(wallet_address):
+    url = f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&startblock=0&endblock=99999999&sort=asc&apikey={ETHERSCAN_API_KEY}"
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        raise Exception("Failed to fetch transactions")
+
+    data = response.json()
+    if data["status"] != "1":
+        raise Exception("Failed to fetch transactions: " + data["message"])
+
+    transactions = data["result"]
+
+    if not transactions:
+        return None
+
+    oldest_transaction = transactions[0]
+    timestamp = int(oldest_transaction["timeStamp"])
+    age = datetime.datetime.now() - datetime.datetime.fromtimestamp(timestamp)
+    return age.days > 100
+
 
 def get_provider():
     return Web3.HTTPProvider(f"https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_API_KEY}")
-@app.get("/holds_gems/{address}")
 async def has_bluechip(address: str):
     w3 = Web3(get_provider())
     collection_contract_addresses = [
@@ -56,7 +76,7 @@ async def has_bluechip(address: str):
 
     return {"holder": "false"}
 
-@app.get("/balance/{address}")
+@app.get("/rating/{address}")
 async def get_balance(address: str):
     # Check if the address is a valid Ethereum address
     w3 = Web3(Web3.HTTPProvider(f"https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_API_KEY}"))
@@ -68,7 +88,14 @@ async def get_balance(address: str):
     balance_wei = int( w3.eth.get_balance(address))
     balance_eth = balance_wei / 10**18
 
-    return {"address": address, "balance": balance_eth}
+    rating = 1
+    if await has_bluechip(address=address):
+        rating += 10
+    if await older_that_100_days(address):
+        rating += 2
+    if balance_eth > 1:
+        rating += 1
+    return {"rating": rating}
 
 
 def is_valid_ethereum_address(address: str) -> bool:
