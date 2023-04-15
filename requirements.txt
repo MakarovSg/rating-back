@@ -3,3 +3,4 @@ pydantic>=1.8.0
 uvicorn>=0.15.0
 requests
 web3
+numpy

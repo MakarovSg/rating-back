@@ -3,6 +3,7 @@ from web3 import Web3
 import requests, os, time, datetime
 from fastapi import FastAPI, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
+import numpy as np
 
 class CORSMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
@@ -20,7 +21,7 @@ ETHERSCAN_API_KEY = os.environ["ETHERSCAN_API_KEY"]
 
 
 
-def fetch_all_nfts(base_url, page_size=1000):
+def fetch_all_nfts(base_url, page_size=100):
     items = []
     page = 0
 
@@ -87,7 +88,7 @@ async def has_bluechip(address: str):
         if nft_contract_address.lower() in collection_contract_addresses.keys():
             score += collection_contract_addresses.pop(nft_contract_address.lower())
             
-
+    print(score)
     return False
 
 
@@ -101,14 +102,16 @@ async def get_score(address: str):
     if not w3.is_address(address):
         raise HTTPException(status_code=400, detail="Invalid Ethereum address")
 
-    balance_wei = int(w3.eth.get_balance(address))
+    balance_wei = int(w3.eth.get_balance(w3.to_checksum_address(address.lower())))
     balance_eth = balance_wei / 10**18
 
     rating = 1
     max = 38
-    rating += await has_bluechip(address=address)
+    # rating += await has_bluechip(address=address)
     rating += await get_age_score(address)
+    rating += 10
     if balance_eth > 1:
         rating += 1
-    response = {"rating": rating / max}
+    score = 1 / (1 + np.exp(-0.15 * (rating - 8)))
+    response = {"rating": score}
     return response
