@@ -24,23 +24,17 @@ def fetch_all_nfts(base_url, page_size=1000):
     items = []
     page = 0
 
-    while True:
-        params = {"page": page, "pageSize": page_size}
-        headers = {"Content-Type": "application/json"}
-        response = requests.get(base_url, params=params, headers=headers)
-        if response.status_code != 200:
-            break
+    params = {"page": page, "pageSize": page_size}
+    headers = {"Content-Type": "application/json"}
+    response = requests.get(base_url, params=params, headers=headers)
+    if response.status_code != 200:
+        return []
 
-        data = response.json()["ownedNfts"]
+    data = response.json()["ownedNfts"]
 
-        if not data:
-            break
-        items.extend(data)
-        if len(data) < 100:
-            break
-        time.sleep(0.2)  # 5 free requests per seconds on infura
-        page += 1
-    return items
+    return data
+
+
 
 
 async def older_that_100_days(wallet_address):
@@ -83,8 +77,6 @@ async def has_bluechip(address: str):
         raise ValueError("Invalid Ethereum address")
     nft_api_url = f"{ALCHEMY_BASE_URL}{ALCHEMY_API_KEY}/getNFTs?owner={address}&withMetadata=false"
     nft_data = fetch_all_nfts(nft_api_url)
-    if not w3.is_connected():
-        return False
     for nft in nft_data:
         nft_contract_address = nft["contract"]["address"]
         if nft_contract_address.lower() in collection_contract_addresses:
