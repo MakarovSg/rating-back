@@ -35,11 +35,12 @@ async def older_that_100_days(wallet_address):
     response = requests.get(url)
 
     if response.status_code != 200:
-        raise Exception("Failed to fetch transactions")
+        return False
 
     data = response.json()
     if data["status"] != "1":
-        raise Exception("Failed to fetch transactions: " + data["message"])
+        print("Failed to fetch transactions: " + data["message"])
+        return False
 
     transactions = data["result"]
 
@@ -72,9 +73,9 @@ async def has_bluechip(address: str):
     for nft in nft_data:
         nft_contract_address = nft["contract"]["address"]
         if nft_contract_address.lower() in collection_contract_addresses:
-            return {"holder": "true"}
+            return True
 
-    return {"holder": "false"}
+    return False
 
 @app.get("/rating/{address}")
 async def get_balance(address: str):
