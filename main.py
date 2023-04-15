@@ -81,7 +81,7 @@ async def get_balance(address: str):
     # Check if the address is a valid Ethereum address
     w3 = Web3(Web3.HTTPProvider(f"https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_API_KEY}"))
 
-    if not is_valid_ethereum_address(address):
+    if not w3.is_address(address):
         raise HTTPException(status_code=400, detail="Invalid Ethereum address")
 
     
@@ -98,11 +98,3 @@ async def get_balance(address: str):
     return {"rating": rating}
 
 
-def is_valid_ethereum_address(address: str) -> bool:
-    if not address.startswith("0x") or len(address) != 42:
-        return False
-    try:
-        int(address[2:], 16)
-    except ValueError:
-        return False
-    return True
