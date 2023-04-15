@@ -89,12 +89,13 @@ async def get_balance(address: str):
     balance_eth = balance_wei / 10**18
 
     rating = 1
+    max = 14
     if await has_bluechip(address=address):
         rating += 10
     if await older_that_100_days(address):
         rating += 2
     if balance_eth > 1:
         rating += 1
-    return {"rating": rating}
+    return {"rating": rating/max}
 
 
