@@ -1,19 +1,42 @@
 from fastapi import FastAPI, HTTPException
 from web3 import Web3
-import requests
+import requests, json
 
 app = FastAPI()
 ALCHEMY_BASE_URL = "https://eth-mainnet.g.alchemy.com/nft/v2/"
 ALCHEMY_API_KEY = "key"
 
-@app.get("/nfts/{address}")
-async def list_nfts(address: str):
-    url = f"{ALCHEMY_BASE_URL}{ALCHEMY_API_KEY}/getNFTs?owner={address}&withMetadata=true&pageSize=100"
+def get_provider():
+    return Web3.HTTPProvider(f"https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_API_KEY}")
+@app.get("/holds_ens/{address}")
+async def has_ens(address: str):
+    w3 = Web3(get_provider())
+    collection_contract_address = "0x57f1887a8bf19b14fc0df6fd9b2acc9af147ea85"
+    if not w3.is_address(address):
+        raise ValueError("Invalid Ethereum address")
+    nft_api_url = f"{ALCHEMY_BASE_URL}{ALCHEMY_API_KEY}/getNFTs?owner={address}&withMetadata=true&pageSize=1000"
     headers = {"Content-Type": "application/json"}
-    response = requests.get(url, headers=headers)
+    response = requests.get(nft_api_url, headers=headers)
     response.raise_for_status()
-    result = response.json()["ownedNfts"]
-    return {"nfts": result}
+    nft_data = response.json()["ownedNfts"]
+    if not w3.is_connected():
+        return False
+
+    print(nft_data)
+
+    for nft in nft_data:
+        nft_contract_address = nft["contract"]["address"]
+
+        if nft_contract_address.lower() == collection_contract_address.lower():
+            nft_token_id = nft["id"]["tokenId"]
+            erc721_abi = json.loads('[{"constant":true,"inputs":[{"name":"tokenId","type":"uint256"},{"name":"owner","type":"address"}],"name":"exists","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"}]')
+            erc721_contract = w3.eth.contract(address=Web3.to_checksum_address(nft_contract_address), abi=erc721_abi)
+            nft_owner = erc721_contract.functions.ownerOf(int(nft_token_id, 16)).call()
+
+            if nft_owner.lower() == address.lower():
+                return {"ENS": "true"}
+
+    return {"ENS": "false"}
 
 @app.get("/balance/{address}")
 async def get_balance(address: str):
