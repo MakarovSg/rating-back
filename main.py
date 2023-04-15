@@ -107,8 +107,8 @@ async def get_score(address: str):
 
     rating = 1
     max = 38
-    # rating += await has_bluechip(address=address)
-    rating += await get_age_score(address)
+    rating += await has_bluechip(address=address)
+    #rating += await get_age_score(address)
     rating += 10
     if balance_eth > 1:
         rating += 1
