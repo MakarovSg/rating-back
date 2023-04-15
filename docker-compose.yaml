@@ -1,0 +1,18 @@
+services:
+  app:
+    build:
+      context: .
+    environment:
+      - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY}
+      - ALCHEMY_API_KEY=${ALCHEMY_API_KEY}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.score.rule=Host(`score-api.sgmakarov.ru`)"
+      - "traefik.http.routers.score.entrypoints=websecure"
+      - "traefik.http.routers.score.tls.certresolver=letsencrypt"
+      - "traefik.http.services.score.loadbalancer.server.port=8000"
+    ports: 
+      - 8000:8000
+networks:
+  default:
+    name: public

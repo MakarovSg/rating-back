@@ -1,19 +1,22 @@
 from fastapi import FastAPI, HTTPException
 from web3 import Web3
-import requests, json, time, datetime
-from fastapi.middleware.cors import CORSMiddleware
+import requests, os, time, datetime
+from fastapi import FastAPI, HTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class CORSMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, Origin, User-Agent, Cache-Control, Keep-Alive, If-Modified-Since, X-Requested-With"
+        return response
 
 app = FastAPI()
+app.add_middleware(CORSMiddleware)
 ALCHEMY_BASE_URL = "https://eth-mainnet.g.alchemy.com/nft/v2/"
-ALCHEMY_API_KEY = "key"
-ETHERSCAN_API_KEY = "key"
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+ALCHEMY_API_KEY = os.environ["ALCHEMY_API_KEY"]
+ETHERSCAN_API_KEY = os.environ["ETHERSCAN_API_KEY"]
 
 
 
@@ -111,4 +114,5 @@ async def get_score(address: str):
         rating += 2
     if balance_eth > 1:
         rating += 1
-    return {"rating": rating / max}
+    response = {"rating": rating / max}
+    return response
