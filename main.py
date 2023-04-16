@@ -17,7 +17,6 @@ app = FastAPI()
 app.add_middleware(CORSMiddleware)
 ALCHEMY_BASE_URL = "https://eth-mainnet.g.alchemy.com/nft/v2/"
 ALCHEMY_API_KEY = os.environ["ALCHEMY_API_KEY"]
-ETHERSCAN_API_KEY = os.environ["ETHERSCAN_API_KEY"]
 
 
 
@@ -38,31 +37,40 @@ def fetch_all_nfts(base_url, page_size=100):
 
 
 
-async def get_age_score(wallet_address):
-    url = f"https://api.etherscan.io/api?module=account&action=txlist&address={wallet_address}&startblock=0&endblock=99999999&sort=asc&apikey={ETHERSCAN_API_KEY}"
-    response = requests.get(url)
+async def get_age_score(address):
+    w3 = Web3(get_provider())
 
-    if response.status_code != 200:
+    if not w3.is_address(address):
         return 0
 
-    data = response.json()
-    if data["status"] != "1":
-        print("Failed to fetch transactions: " + data["message"])
+    address = w3.to_checksum_address(address)
+    start_block = 0
+    end_block = w3.eth.block_number
+
+    found_block = None
+
+    # Binary search
+    while start_block <= end_block:
+        mid_block = (start_block + end_block) // 2
+        balance = w3.eth.get_balance(address, block_identifier=mid_block)
+
+        if balance > 0:
+            found_block = mid_block
+            end_block = mid_block - 1
+        else:
+            start_block = mid_block + 1
+
+    if found_block is not None:
+        block = w3.eth.get_block(found_block)
+        timestamp = block.timestamp
+        age = datetime.datetime.now() - datetime.datetime.fromtimestamp(timestamp)
+        if age.days > 365:
+            return 5
+        elif age.days > 100:
+            return 2
         return 0
+    return 0
 
-    transactions = data["result"]
-
-    if not transactions:
-        return 0
-
-    oldest_transaction = transactions[0]
-    timestamp = int(oldest_transaction["timeStamp"])
-    age = datetime.datetime.now() - datetime.datetime.fromtimestamp(timestamp)
-    if age.days > 365:
-        return 5
-    elif age.days > 100:
-        return 2
-    return 0 
 
 
 def get_provider():
@@ -105,11 +113,9 @@ async def get_score(address: str):
     balance_wei = int(w3.eth.get_balance(w3.to_checksum_address(address.lower())))
     balance_eth = balance_wei / 10**18
 
-    rating = 1
-    max = 38
+    rating = 7
     rating += await has_bluechip(address=address)
-    #rating += await get_age_score(address)
-    rating += 10
+    rating += await get_age_score(address)
     if balance_eth > 1:
         rating += 1
     score = 1 / (1 + np.exp(-0.15 * (rating - 8)))
